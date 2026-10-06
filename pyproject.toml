@@ -1,0 +1,43 @@
+[project]
+name = "narada-transliterator"
+version = "0.1.0"
+description = "BullMQ worker that transliterates Telugu chant text into other scripts with Aksharamukha"
+readme = "README.md"
+license = "AGPL-3.0-only"
+# aksharamukha 2.3 imports `ast.Str`, which Python 3.14 removed.
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "aksharamukha==2.3",
+    "bullmq>=3.3,<4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.9",
+]
+
+[project.scripts]
+transliterator = "transliterator.worker:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/transliterator"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Golden strings are one verse per line on purpose.
+"tests/*" = ["E501"]
