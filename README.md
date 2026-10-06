@@ -54,6 +54,36 @@ REDIS_URL=redis://localhost:6379 uv run transliterator
 
 A worker needs about 40 MiB at rest and handles a batch of verses in a few milliseconds.
 
+## Deploying
+
+The worker is its own Railway service in each environment, with one variable and no port or public domain:
+
+| Environment | Service name | `REDIS_URL` |
+|---|---|---|
+| staging | `transliterator` | `${{Redis-5ouG.REDIS_URL}}` |
+| production | `transliterator-prod` | `${{Redis.REDIS_URL}}` |
+
+Service names are unique per Railway project, which is why the two differ. `REDIS_URL` is a reference to that environment's own Redis service, the same one its API uses, so no secret is copied anywhere. The queue name and key prefix are the defaults on both sides.
+
+Deploys are done by two workflows:
+
+- **Staging** (`deploy-transliterator-staging.yml`) runs after every green CI on `main`, like the API's. It then polls the API's `GET /v1/health/transliterator` until it answers 200, which it does only while a worker's heartbeat key is alive. A runner can't reach Redis on Railway's private network, so the API does the looking.
+- **Production** (`deploy-transliterator.yml`) is manual: type `deploy` to confirm. Set the `PRODUCTION_API_URL` variable on the production environment to make it run the same check.
+
+Both upload `apps/transliterator` as the archive root (`--path-as-root`). That keeps the repository's root `railway.json`, which points at the API's Dockerfile, out of this build.
+
+Setting up a new environment, or rebuilding one, by hand:
+
+```sh
+railway environment <env>
+railway add --service <service-name>
+railway variable set 'REDIS_URL=${{<redis-service-name>.REDIS_URL}}' --service <service-name> --environment <env> --skip-deploys
+railway up apps/transliterator --path-as-root --service <service-name> --environment <env> --ci
+railway logs --service <service-name> --environment <env> --lines 20    # look for "transliterator ready"
+```
+
+The API's `/v1/health/transliterator` is deliberately separate from `/v1/health/ready`: readers are served without the worker, so a worker that is down must not take the API out of rotation.
+
 ## Tests
 
 ```sh
