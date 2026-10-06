@@ -23,6 +23,10 @@ The API adds jobs to the queue named `transliterate`.
 
 The exact options per script, and why, are in `src/transliterator/scripts.py`.
 
+### Is a worker listening?
+
+While it runs, a worker refreshes the key `<prefix>:transliterate:heartbeat` every 5 seconds with a 15-second expiry; the value is its `rulesVersion`. A producer that finds the key missing knows no worker is up and can fail at once instead of waiting out a job timeout. This is separate from BullMQ's own worker listing on purpose: Node's `Queue.getWorkers()` looks for client names with the queue name base64-encoded, the Python library registers the plain name, so it never sees this worker. The API client reads the same key (`workerHeartbeatKey` in `apps/api/src/transliteration/queue.ts`), and a contract test starts the real worker to keep the two in agreement.
+
 ## Running it
 
 Configuration is environment variables:

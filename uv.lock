@@ -433,6 +433,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aksharamukha" },
     { name = "bullmq" },
+    { name = "redis" },
 ]
 
 [package.dev-dependencies]
@@ -445,6 +446,7 @@ dev = [
 requires-dist = [
     { name = "aksharamukha", specifier = "==2.3" },
     { name = "bullmq", specifier = ">=3.3,<4" },
+    { name = "redis", specifier = ">=5" },
 ]
 
 [package.metadata.requires-dev]

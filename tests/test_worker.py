@@ -10,8 +10,15 @@ import uuid
 
 import pytest
 from bullmq import Job, Queue
+from redis import asyncio as aioredis
 
-from transliterator.worker import QUEUE_NAME, create_worker
+from transliterator.worker import (
+    HEARTBEAT_TTL_SECONDS,
+    QUEUE_NAME,
+    beat,
+    create_worker,
+    heartbeat_key,
+)
 
 REDIS_URL = os.environ.get("REDIS_URL")
 pytestmark = pytest.mark.skipif(not REDIS_URL, reason="REDIS_URL is not set")
@@ -73,3 +80,23 @@ def test_an_invalid_payload_fails_once_without_retrying():
         assert done.attemptsStarted == 1
 
     _run(scenario)
+
+
+def test_a_beat_marks_the_worker_as_alive_for_a_short_while():
+    async def go():
+        prefix = f"test-{uuid.uuid4().hex[:8]}"
+        client = aioredis.from_url(REDIS_URL)
+        key = heartbeat_key(prefix)
+        try:
+            assert await client.exists(key) == 0
+
+            await beat(client, prefix)
+
+            assert key == f"{prefix}:transliterate:heartbeat"
+            assert await client.exists(key) == 1
+            assert 0 < await client.ttl(key) <= HEARTBEAT_TTL_SECONDS
+        finally:
+            await client.delete(key)
+            await client.aclose()
+
+    asyncio.run(go())

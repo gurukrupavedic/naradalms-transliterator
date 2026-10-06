@@ -9,6 +9,7 @@ requires-python = ">=3.11,<3.14"
 dependencies = [
     "aksharamukha==2.3",
     "bullmq>=3.3,<4",
+    "redis>=5",
 ]
 
 [dependency-groups]
