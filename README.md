@@ -27,6 +27,16 @@ The exact options per script, and why, are in `src/transliterator/scripts.py`.
 
 While it runs, a worker refreshes the key `<prefix>:transliterate:heartbeat` every 5 seconds with a 15-second expiry; the value is its `rulesVersion`. A producer that finds the key missing knows no worker is up and can fail at once instead of waiting out a job timeout. This is separate from BullMQ's own worker listing on purpose: Node's `Queue.getWorkers()` looks for client names with the queue name base64-encoded, the Python library registers the plain name, so it never sees this worker. The API client reads the same key (`workerHeartbeatKey` in `apps/api/src/transliteration/queue.ts`), and a contract test starts the real worker to keep the two in agreement.
 
+## Adding a script
+
+1. Add a `Target` for it in `src/transliterator/scripts.py`, with golden tests in `tests/test_scripts.py`.
+2. Add the value to the `script` enum in `packages/db/src/schema/school.ts` and generate a migration.
+3. Add it to `DERIVED_SCRIPTS` (`apps/api/src/docChapters/schema.ts`) and to `transliterationScriptSchema` (`apps/api/src/transliteration/schema.ts`).
+4. Give the web app a font and a label for it (`apps/web/app/layout.tsx`, the `SCRIPTS` lists).
+5. Deploy the worker first, then the API.
+
+Content that already exists catches up by itself: on every boot the API finds each segment and doc chapter title that lacks a script in `DERIVED_SCRIPTS` and derives it from the Telugu (`apps/api/src/docChapters/backfill.ts`). It only adds rows, never rewrites one, and when nothing is missing it does almost no work. If the worker isn't up yet, the job retries for about twenty minutes.
+
 ## Running it
 
 Configuration is environment variables:
