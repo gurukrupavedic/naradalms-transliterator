@@ -52,7 +52,7 @@ def test_a_job_is_transliterated_and_returned():
     async def scenario(queue):
         job = await queue.add(
             "transliterate",
-            {"texts": ["ఓం శాంతిః", "సంకల్ప"], "scripts": ["sa", "en", "kn"]},
+            {"texts": ["ఓం శాంతిః", "సంకల్ప"], "scripts": ["sa", "en", "kn", "ta"]},
         )
         done = await _settled(queue, job.id)
 
@@ -62,6 +62,7 @@ def test_a_job_is_transliterated_and_returned():
             "sa": ["ॐ शांतिः", "संकल्प"],
             "en": ["oṃ śāntiḥ", "saṅkalpa"],
             "kn": ["ಓಂ ಶಾಂತಿಃ", "ಸಂಕಲ್ಪ"],
+            "ta": ["ௐ ஶாந்திஃ", "ஸங்கல்ப"],
         }
 
     _run(scenario)

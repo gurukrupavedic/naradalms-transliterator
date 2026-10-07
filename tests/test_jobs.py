@@ -5,13 +5,15 @@ from transliterator.jobs import RULES_VERSION, InvalidJob, run_job
 
 
 def test_result_lines_up_with_the_texts_for_every_requested_script():
-    result = run_job({"texts": ["ఓం శాంతిః", "", "శ్రీ"], "scripts": ["sa", "en"]})
+    result = run_job({"texts": ["ఓం శాంతిః", "", "శ్రీ"], "scripts": ["sa", "en", "kn", "ta"]})
 
     assert result == {
         "rulesVersion": RULES_VERSION,
         "scripts": {
             "sa": ["ॐ शांतिः", "", "श्री"],
             "en": ["oṃ śāntiḥ", "", "śrī"],
+            "kn": ["ಓಂ ಶಾಂತಿಃ", "", "ಶ್ರೀ"],
+            "ta": ["ௐ ஶாந்திஃ", "", "ஶ்ரீ"],
         },
     }
 

@@ -8,11 +8,25 @@ documents already contain:
   sa      Devanagari           indicDandas
   en      IAST                 AnusvaratoNasalASTISO, indicDandas
   kn      Kannada              indicDandas
+  ta      Tamil                indicDandas, then visarga ꞉ → ஃ and Vedic accent marks dropped
 
 `indicDandas` looks like a no-op (its function in PostProcess just returns the string) but the
 library branches on the option's name: without it the Telugu danda `।` comes out as `.` in IAST and
 Kannada. `AnusvaratoNasalASTISO` turns ṃ into ṅ/ñ/ṇ/n/m when a stop follows directly
 (saṃkalpa → saṅkalpa).
+
+Tamil script has no letters for most of Sanskrit's consonant distinctions, so Aksharamukha's
+`Tamil` target writes them the way Vedic text is usually written in Tamil: Grantha letters for
+ś ṣ s h kṣ jñ, and superscript digits on a base consonant for the others (க² க³ க⁴ for kh g gh).
+Its other Tamil targets come out in Malayalam and Bengali letters here, so they are not used. It
+writes visarga as the modifier letter colon ꞉ (U+A789), which Noto Serif Tamil has no glyph for and
+which showed as a box; that is rewritten to Tamil's own ஃ (U+0B83), which the font has.
+
+The Vedic accent marks (the Devanagari udatta and anudatta, and the Vedic Extensions block) pass
+through Aksharamukha unchanged, and neither Noto Serif Tamil nor any font in its fallback stack can
+attach them to a Tamil letter: they rendered as dotted circles. Tamil script has no equivalent
+mark, so they are dropped from the Tamil output. In the real book they occur about sixteen times,
+mostly in the Guru invocation; Telugu and Kannada keep them, as those fonts carry them.
 
 Aksharamukha 2.3's *docx* converter swaps its pre/post option lists; the string API used here does
 not, so none of that compensation applies. Operating on whole strings also avoids the docx path's
@@ -37,12 +51,23 @@ SOURCE_SCRIPT = "Telugu"
 class Target:
     aksharamukha_name: str
     post_options: tuple[str, ...]
+    # (regex, replacement) pairs applied to Aksharamukha's output, in order. For characters the
+    # target's font cannot draw.
+    replacements: tuple[tuple[str, str], ...] = ()
 
 
 TARGETS: dict[str, Target] = {
     "sa": Target("Devanagari", ("indicDandas",)),
     "en": Target("IAST", ("AnusvaratoNasalASTISO", "indicDandas")),
     "kn": Target("Kannada", ("indicDandas",)),
+    "ta": Target(
+        "Tamil",
+        ("indicDandas",),
+        replacements=(
+            ("\ua789", "\u0b83"),  # modifier colon -> Tamil aytham, for visarga
+            ("[\u0951\u0952\u1cd0-\u1cff\ua8e0-\ua8ff]", ""),  # Vedic accent marks
+        ),
+    ),
 }
 
 # Vedic accent marks that can sit between an anusvara and the next consonant: the Devanagari
@@ -73,7 +98,10 @@ def spaced_nasal(iast: str) -> str:
 
 
 def transliterate(text: str, script: str, *, spaced_nasal_rule: bool = False) -> str:
-    """One Telugu text into `script` ('sa', 'en' or 'kn'). `spaced_nasal_rule` only affects 'en'."""
+    """One Telugu text into `script` ('sa', 'en', 'kn' or 'ta').
+
+    `spaced_nasal_rule` only affects 'en'.
+    """
     target = TARGETS[script]
     if not text.strip():
         return text
@@ -91,4 +119,6 @@ def transliterate(text: str, script: str, *, spaced_nasal_rule: bool = False) ->
         nativize=True,
         post_options=list(post_options),
     )
+    for pattern, replacement in target.replacements:
+        result = re.sub(pattern, replacement, result)
     return spaced_nasal(result) if use_spaced else result

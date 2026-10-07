@@ -11,6 +11,7 @@ GOLDEN = [
         "ॐ भूर्भुवस्सुवः । तत्सवितुर्वरेण्यं भर्गो देवस्य धीमहि । धियो यो नः प्रचोदयात् ॥",
         "oṃ bhūrbhuvassuvaḥ | tatsaviturvareṇyaṃ bhargo devasya dhīmahi | dhiyo yo naḥ pracodayāt ||",
         "ಓಂ ಭೂರ್ಭುವಸ್ಸುವಃ । ತತ್ಸವಿತುರ್ವರೇಣ್ಯಂ ಭರ್ಗೋ ದೇವಸ್ಯ ಧೀಮಹಿ । ಧಿಯೋ ಯೋ ನಃ ಪ್ರಚೋದಯಾತ್ ॥",
+        "ௐ பூ⁴ர்பு⁴வஸ்ஸுவஃ । தத்ஸவிதுர்வரேண்யம்ʼ ப⁴ர்கோ³ தே³வஸ்ய தீ⁴மஹி । தி⁴யோ யோ நஃ ப்ரசோத³யாத் ॥",
         id="gayatri",
     ),
     pytest.param(
@@ -18,6 +19,7 @@ GOLDEN = [
         "शुक्लांबरधरं विष्णुं शशिवर्णं चतुर्भुजं । प्रसन्नवदनं ध्यायेत् सर्वविघ्नोपशांतये ॥",
         "śuklāmbaradharaṃ viṣṇuṃ śaśivarṇaṃ caturbhujaṃ | prasannavadanaṃ dhyāyet sarvavighnopaśāntaye ||",
         "ಶುಕ್ಲಾಂಬರಧರಂ ವಿಷ್ಣುಂ ಶಶಿವರ್ಣಂ ಚತುರ್ಭುಜಂ । ಪ್ರಸನ್ನವದನಂ ಧ್ಯಾಯೇತ್ ಸರ್ವವಿಘ್ನೋಪಶಾಂತಯೇ ॥",
+        "ஶுக்லாம்ப³ரத⁴ரம்ʼ விஷ்ணும்ʼ ஶஶிவர்ணம்ʼ சதுர்பு⁴ஜம்ʼ । ப்ரஸன்னவத³னம்ʼ த்⁴யாயேத் ஸர்வவிக்⁴னோபஶாந்தயே ॥",
         id="shukla-ambaradharam",
     ),
     pytest.param(
@@ -25,6 +27,7 @@ GOLDEN = [
         "ॐ सह नाववतु । सह नौ भुनक्तु ॥ ॐ शांतिः शांतिः शांतिः ॥",
         "oṃ saha nāvavatu | saha nau bhunaktu || oṃ śāntiḥ śāntiḥ śāntiḥ ||",
         "ಓಂ ಸಹ ನಾವವತು । ಸಹ ನೌ ಭುನಕ್ತು ॥ ಓಂ ಶಾಂತಿಃ ಶಾಂತಿಃ ಶಾಂತಿಃ ॥",
+        "ௐ ஸஹ நாவவது । ஸஹ நௌ பு⁴னக்து ॥ ௐ ஶாந்திஃ ஶாந்திஃ ஶாந்திஃ ॥",
         id="shanti",
     ),
     pytest.param(
@@ -32,6 +35,7 @@ GOLDEN = [
         "श्री॒ गु॒रु॒भ्यो॒ न॒मः॒ ॥॥ हरिः ओम् ॥॥",
         "śrī̱ gu̱ru̱bhyo̱ na̱ma̱ḥ .... hariḥ om ....",
         "ಶ್ರೀ॒ ಗು॒ರು॒ಭ್ಯೋ॒ ನ॒ಮಃ॒ .... ಹರಿಃ ಓಂ ....",
+        "ஶ்ரீ கு³ருப்⁴யோ நமஃ .... ஹரிஃ ஓம் ....",
         id="invocation-with-vedic-accents",
     ),
     pytest.param(
@@ -39,16 +43,18 @@ GOLDEN = [
         "अन्यानस्मद्गुरून् सन्तत मानतोऽस्मि ||",
         "anyānasmadgurūn santata mānato'smi ||",
         "ಅನ್ಯಾನಸ್ಮದ್ಗುರೂನ್ ಸಂತತ ಮಾನತೋಽಸ್ಮಿ ||",
+        "அன்யானஸ்மத்³கு³ரூன் ஸந்தத மானதோ(அ)ஸ்மி ||",
         id="avagraha-and-explicit-nasal",
     ),
 ]
 
 
-@pytest.mark.parametrize(("te", "sa", "en", "kn"), GOLDEN)
-def test_golden(te, sa, en, kn):
+@pytest.mark.parametrize(("te", "sa", "en", "kn", "ta"), GOLDEN)
+def test_golden(te, sa, en, kn, ta):
     assert transliterate(te, "sa") == sa
     assert transliterate(te, "en") == en
     assert transliterate(te, "kn") == kn
+    assert transliterate(te, "ta") == ta
 
 
 def test_indic_dandas_option_is_what_keeps_the_telugu_danda():
@@ -80,6 +86,39 @@ def test_digits_follow_the_target_script():
     assert transliterate("abc 123 ౧౨౩", "sa") == "abc १२३ १२३"
     assert transliterate("abc 123 ౧౨౩", "kn") == "abc ೧೨೩ ೧೨೩"
     assert transliterate("abc 123 ౧౨౩", "en") == "abc 123 123"
+
+
+def test_tamil_writes_visarga_as_aytham_not_the_modifier_colon():
+    # Aksharamukha writes visarga as U+A789, which Noto Serif Tamil has no glyph for (it rendered
+    # as a box); the worker rewrites it to Tamil's own aytham, which the font has.
+    out = transliterate("నమః శివాయ శాంతిః", "ta")
+
+    assert out == "நமஃ ஶிவாய ஶாந்திஃ"
+    assert "\ua789" not in out
+
+
+def test_tamil_drops_the_vedic_accent_marks_its_font_cannot_attach():
+    # The marks pass through Aksharamukha untouched, but Noto Serif Tamil cannot draw them on a Tamil
+    # letter and they rendered as dotted circles. Kannada keeps them: its font carries them.
+    te = "శ్రీ॒ గు॒రు॒భ్యో॒ న॒మః॒"
+
+    assert transliterate(te, "ta") == "ஶ்ரீ கு³ருப்⁴யோ நமஃ"
+    assert "\u0952" in transliterate(te, "kn")
+    assert not any(c in transliterate("అ॒ ఇ᳚", "ta") for c in "\u0951\u0952\u1cda")
+
+
+def test_tamil_uses_the_vedic_conventions_for_sounds_tamil_script_lacks():
+    # Grantha letters for ś ṣ s h kṣ jñ, a superscript digit on the base consonant for the
+    # aspirated and voiced stops, and a modifier apostrophe for the anusvara.
+    assert (
+        transliterate("శ్రీ కృష్ణ జ్ఞానం క్షేత్రం శివ షణ్ముఖ", "ta") == "ஶ்ரீ க்ருʼஷ்ண ஜ்ஞானம்ʼ க்ஷேத்ரம்ʼ ஶிவ ஷண்முக²"
+    )
+    assert transliterate("ఖడ్గం ఘటం భక్తి", "ta") == "க²ட்³க³ம்ʼ க⁴டம்ʼ ப⁴க்தி"
+
+
+@pytest.mark.parametrize("script", ["kn", "ta"])
+def test_the_danda_is_kept_in_the_new_scripts(script):
+    assert "।" in transliterate("ఓం ।", script)
 
 
 # ── The spaced anusvara rule (English, opt-in) ──────────────────────────────────────────────────
@@ -125,6 +164,7 @@ def test_spaced_nasal_is_opt_in_and_only_for_english():
     assert transliterate(te, "en", spaced_nasal_rule=True) == "trinetram bhaje"
     assert transliterate(te, "sa", spaced_nasal_rule=True) == transliterate(te, "sa")
     assert transliterate(te, "kn", spaced_nasal_rule=True) == transliterate(te, "kn")
+    assert transliterate(te, "ta", spaced_nasal_rule=True) == transliterate(te, "ta")
 
 
 def test_spaced_nasal_keeps_line_end_anusvaras_when_run_through_the_pipeline():

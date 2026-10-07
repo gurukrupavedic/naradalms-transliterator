@@ -1,6 +1,6 @@
 # Transliterator
 
-A BullMQ worker that turns Telugu chant text into other scripts: Devanagari (`sa`), IAST (`en`) and Kannada (`kn`). It uses [Aksharamukha](https://github.com/virtualvinodh/aksharamukha) 2.3, which is Python, so this is its own small service. It needs Redis and nothing else: no database, no object storage, no HTTP port.
+A BullMQ worker that turns Telugu chant text into other scripts: Devanagari (`sa`), IAST (`en`), Kannada (`kn`) and Tamil (`ta`). It uses [Aksharamukha](https://github.com/virtualvinodh/aksharamukha) 2.3, which is Python, so this is its own small service. It needs Redis and nothing else: no database, no object storage, no HTTP port.
 
 Telugu is the only script anyone writes. The API sends verses here and stores what comes back, so a new script or a corrected rule never means re-importing a document.
 
@@ -16,7 +16,7 @@ The API adds jobs to the queue named `transliterate`.
 { "rulesVersion": 1, "scripts": { "sa": ["ॐ शांतिः", "संकल्प"], "en": ["oṃ śāntiḥ", "saṅkalpa"] } }
 ```
 
-- `scripts` is any of `sa`, `en`, `kn`. `texts` is one batch, normally a heading's verses.
+- `scripts` is any of `sa`, `en`, `kn`, `ta`. `texts` is one batch, normally a heading's verses.
 - `spacedNasal` (optional, `en` only) also rewrites ṃ across spaces and Vedic accents: "trinetraṃ bhaje" becomes "trinetram bhaje". It is off by default because it also rewrites Telugu prose written in IAST.
 - `rulesVersion` is bumped in `src/transliterator/jobs.py` whenever the output for the same input can change. Store it next to derived text so stale rows can be found and rebuilt.
 - A payload that can never succeed (unknown script, wrong types, more than 5,000 texts or 1,000,000 characters) fails immediately without retrying. Anything else follows the job's own retry settings.
