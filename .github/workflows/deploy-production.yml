@@ -1,0 +1,54 @@
+name: Deploy to Railway (production)
+
+# Manual only — this ships a production build of the worker. Deliberately no push/PR trigger, like
+# the API's production deploy, so a merge to main never auto-deploys.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm a production deploy'
+        required: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.inputs.confirm == 'deploy'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      # Railway service names are unique per project, so production's is `transliterator-prod`
+      # and staging's is `transliterator`.
+      RAILWAY_SERVICE: transliterator-prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      # --ci streams the build and exits non-zero if it fails.
+      - name: Deploy to Railway
+        run: railway up . --service "$RAILWAY_SERVICE" --environment production --ci
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      # Optional: set the PRODUCTION_API_URL variable on the production environment (its public
+      # API URL, no trailing slash) to have this deploy confirm the worker has checked in.
+      - name: Verify the worker has checked in
+        if: vars.PRODUCTION_API_URL != ''
+        run: |
+          for attempt in $(seq 1 20); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$WORKER_HEALTH_URL" || true)
+            if [ "$code" = "200" ]; then
+              echo "worker has checked in (HTTP $code) after $attempt attempt(s)"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP ${code:-no response}; retrying in 15s"
+            sleep 15
+          done
+          echo "the worker did not check in within the retry budget"
+          exit 1
+        env:
+          WORKER_HEALTH_URL: ${{ vars.PRODUCTION_API_URL }}/v1/health/transliterator

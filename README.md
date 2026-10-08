@@ -2,6 +2,8 @@
 
 A BullMQ worker that turns Telugu chant text into other scripts: Devanagari (`sa`), IAST (`en`), Kannada (`kn`) and Tamil (`ta`). It uses [Aksharamukha](https://github.com/virtualvinodh/aksharamukha) 2.3, which is Python, so this is its own small service. It needs Redis and nothing else: no database, no object storage, no HTTP port.
 
+This service lives in its own repository because Aksharamukha is AGPL-3.0; it is licensed AGPL-3.0 as well (see [LICENSE](LICENSE)). It is used by [NaradaLMS](https://github.com/gurukrupavedic/NaradaLMS), which talks to it only through the queue described below, with plain JSON in and out. Paths such as `apps/api/...` in this README refer to that repository.
+
 Telugu is the only script anyone writes. The API sends verses here and stores what comes back, so a new script or a corrected rule never means re-importing a document.
 
 ## The `transliterate` queue
@@ -25,17 +27,17 @@ The exact options per script, and why, are in `src/transliterator/scripts.py`.
 
 ### Is a worker listening?
 
-While it runs, a worker refreshes the key `<prefix>:transliterate:heartbeat` every 5 seconds with a 15-second expiry; the value is its `rulesVersion`. A producer that finds the key missing knows no worker is up and can fail at once instead of waiting out a job timeout. This is separate from BullMQ's own worker listing on purpose: Node's `Queue.getWorkers()` looks for client names with the queue name base64-encoded, the Python library registers the plain name, so it never sees this worker. The API client reads the same key (`workerHeartbeatKey` in `apps/api/src/transliteration/queue.ts`), and a contract test starts the real worker to keep the two in agreement.
+While it runs, a worker refreshes the key `<prefix>:transliterate:heartbeat` every 5 seconds with a 15-second expiry; the value is its `rulesVersion`. A producer that finds the key missing knows no worker is up and can fail at once instead of waiting out a job timeout. This is separate from BullMQ's own worker listing on purpose: Node's `Queue.getWorkers()` looks for client names with the queue name base64-encoded, the Python library registers the plain name, so it never sees this worker. The API client reads the same key (`workerHeartbeatKey` in NaradaLMS's `apps/api/src/transliteration/queue.ts`), and a contract test starts the real worker to keep the two in agreement.
 
 ## Adding a script
 
 1. Add a `Target` for it in `src/transliterator/scripts.py`, with golden tests in `tests/test_scripts.py`.
-2. Add the value to the `script` enum in `packages/db/src/schema/school.ts` and generate a migration.
-3. Add it to `DERIVED_SCRIPTS` (`apps/api/src/docChapters/schema.ts`) and to `transliterationScriptSchema` (`apps/api/src/transliteration/schema.ts`).
-4. Give the web app a font and a label for it (`apps/web/app/layout.tsx`, the `SCRIPTS` lists).
-5. Deploy the worker first, then the API.
+2. In NaradaLMS, add the value to the `script` enum in `packages/db/src/schema/school.ts` and generate a migration.
+3. In NaradaLMS, add it to `DERIVED_SCRIPTS` (`apps/api/src/docChapters/schema.ts`) and to `transliterationScriptSchema` (`apps/api/src/transliteration/schema.ts`).
+4. In NaradaLMS, give the web app a font and a label for it (`apps/web/app/layout.tsx`, the `SCRIPTS` lists).
+5. Deploy the worker first, then the API. The two are deployed from different repositories now, so keep queue payload changes backward-compatible (add fields; don't rename or remove them).
 
-Content that already exists catches up by itself: on every boot the API finds each segment and doc chapter title that lacks a script in `DERIVED_SCRIPTS` and derives it from the Telugu (`apps/api/src/docChapters/backfill.ts`). It only adds rows, never rewrites one, and when nothing is missing it does almost no work. If the worker isn't up yet, the job retries for about twenty minutes.
+Content that already exists catches up by itself: on every boot the API finds each segment and doc chapter title that lacks a script in `DERIVED_SCRIPTS` and derives it from the Telugu (NaradaLMS's `apps/api/src/docChapters/backfill.ts`). It only adds rows, never rewrites one, and when nothing is missing it does almost no work. If the worker isn't up yet, the job retries for about twenty minutes.
 
 ## Running it
 
@@ -57,7 +59,6 @@ docker logs narada-transliterator -f
 Or directly, with [uv](https://docs.astral.sh/uv/):
 
 ```sh
-cd apps/transliterator
 uv sync
 REDIS_URL=redis://localhost:6379 uv run transliterator
 ```
@@ -75,12 +76,12 @@ The worker is its own Railway service in each environment, with one variable and
 
 Service names are unique per Railway project, which is why the two differ. `REDIS_URL` is a reference to that environment's own Redis service, the same one its API uses, so no secret is copied anywhere. The queue name and key prefix are the defaults on both sides.
 
-Deploys are done by two workflows:
+Deploys are done by two workflows in this repository (`railway up` uploads the checkout, so the Railway services aren't linked to a GitHub repo):
 
-- **Staging** (`deploy-transliterator-staging.yml`) runs after every green CI on `main`, like the API's. It then polls the API's `GET /v1/health/transliterator` until it answers 200, which it does only while a worker's heartbeat key is alive. A runner can't reach Redis on Railway's private network, so the API does the looking.
-- **Production** (`deploy-transliterator.yml`) is manual: type `deploy` to confirm. Set the `PRODUCTION_API_URL` variable on the production environment to make it run the same check.
+- **Staging** (`deploy-staging.yml`) runs after every green CI on `main`, like the API's. It then polls the API's `GET /v1/health/transliterator` when the `STAGING_API_URL` variable is set until it answers 200, which it does only while a worker's heartbeat key is alive. A runner can't reach Redis on Railway's private network, so the API does the looking.
+- **Production** (`deploy-production.yml`) is manual: type `deploy` to confirm. Set the `PRODUCTION_API_URL` variable on the production environment to make it run the same check.
 
-Both upload `apps/transliterator` as the archive root (`--path-as-root`). That keeps the repository's root `railway.json`, which points at the API's Dockerfile, out of this build.
+Each environment (`staging`, `production`) needs a `RAILWAY_TOKEN` secret (a Railway project token for that environment) in this repository's settings.
 
 Setting up a new environment, or rebuilding one, by hand:
 
@@ -88,7 +89,7 @@ Setting up a new environment, or rebuilding one, by hand:
 railway environment <env>
 railway add --service <service-name>
 railway variable set 'REDIS_URL=${{<redis-service-name>.REDIS_URL}}' --service <service-name> --environment <env> --skip-deploys
-railway up apps/transliterator --path-as-root --service <service-name> --environment <env> --ci
+railway up . --service <service-name> --environment <env> --ci
 railway logs --service <service-name> --environment <env> --lines 20    # look for "transliterator ready"
 ```
 
@@ -97,7 +98,6 @@ The API's `/v1/health/transliterator` is deliberately separate from `/v1/health/
 ## Tests
 
 ```sh
-cd apps/transliterator
 uv run ruff check . && uv run ruff format --check .
 REDIS_URL=redis://localhost:6379 uv run pytest
 ```
@@ -111,3 +111,7 @@ The golden tests pin Aksharamukha's current output for a handful of public-domai
 - Python is pinned to 3.13 or earlier: Aksharamukha 2.3 imports `ast.Str`, which Python 3.14 removed.
 - `uv.lock` is committed and the image installs with `--locked`, so a rebuild never picks up new versions on its own.
 - Aksharamukha is AGPL-3.0, like this repository.
+
+## License
+
+AGPL-3.0-only; see [LICENSE](LICENSE). This follows from the dependency on [Aksharamukha](https://github.com/virtualvinodh/aksharamukha), which declares AGPL-3.0 in its package metadata and README. If you run a modified version as a network service, section 13 of the license requires you to offer its source to the people using it.
