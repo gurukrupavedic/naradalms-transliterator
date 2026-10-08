@@ -28,9 +28,11 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      # --ci streams the build and exits non-zero if it fails.
+      # --ci streams the build and exits non-zero if it fails. No path argument on purpose: the CLI
+      # uploads the current directory by default, and `railway up .` without --path-as-root fails
+      # with "prefix not found" (it strips an absolute prefix from relative paths).
       - name: Deploy to Railway
-        run: railway up . --service "$RAILWAY_SERVICE" --environment production --ci
+        run: railway up --service "$RAILWAY_SERVICE" --environment production --ci
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 

@@ -89,7 +89,7 @@ Setting up a new environment, or rebuilding one, by hand:
 railway environment <env>
 railway add --service <service-name>
 railway variable set 'REDIS_URL=${{<redis-service-name>.REDIS_URL}}' --service <service-name> --environment <env> --skip-deploys
-railway up . --service <service-name> --environment <env> --ci
+railway up --service <service-name> --environment <env> --ci
 railway logs --service <service-name> --environment <env> --lines 20    # look for "transliterator ready"
 ```
 
