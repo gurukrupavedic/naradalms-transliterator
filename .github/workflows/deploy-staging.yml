@@ -1,0 +1,68 @@
+name: Deploy to Railway (staging)
+
+# Staging should always match main, and only code that passed CI gets there. The worker has no HTTP
+# port of its own, so success is checked through the NaradaLMS API's /v1/health/transliterator,
+# which reads the worker's heartbeat from Redis.
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+  # Manual re-deploy, e.g. to recover staging after someone has run `railway up` locally against it.
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  # Deploys queue rather than cancel: `railway up` hands off to a Railway-side build that a
+  # cancelled job would not stop, so overlapping runs could race.
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # workflow_run fires for failed CI runs too, so the conclusion has to be checked explicitly.
+    # Always allow a manual dispatch through.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      # Railway service names are unique per project, so staging's is `transliterator` and
+      # production's is `transliterator-prod`.
+      RAILWAY_SERVICE: transliterator
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # workflow_run checks out the default branch by default, not the commit that triggered
+          # CI. Pin it explicitly — `railway up` ships whatever is in the working tree.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      # --ci streams the build and exits non-zero if it fails.
+      - name: Deploy to Railway
+        run: railway up . --service "$RAILWAY_SERVICE" --environment staging --ci
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      # Optional: set the STAGING_API_URL variable on the staging environment (the staging API's
+      # public URL, no trailing slash) to have this deploy confirm the worker has checked in. The
+      # API answers 200 only while a worker's heartbeat key is alive (it expires 15 s after the
+      # worker stops refreshing it).
+      - name: Verify the worker has checked in
+        if: vars.STAGING_API_URL != ''
+        run: |
+          for attempt in $(seq 1 20); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$WORKER_HEALTH_URL" || true)
+            if [ "$code" = "200" ]; then
+              echo "worker has checked in (HTTP $code) after $attempt attempt(s)"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP ${code:-no response}; retrying in 15s"
+            sleep 15
+          done
+          echo "the worker did not check in within the retry budget"
+          exit 1
+        env:
+          WORKER_HEALTH_URL: ${{ vars.STAGING_API_URL }}/v1/health/transliterator
